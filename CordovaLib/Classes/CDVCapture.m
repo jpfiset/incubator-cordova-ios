@@ -215,7 +215,20 @@
     //NSNumber* duration = [options objectForKey:@"duration"];
     NSString* mediaType = nil;
     
-	if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
+    NSString* sourceTypeString = [options valueForKey: @"sourceType"];
+    UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera; //default
+    if( sourceTypeString != nil ) {
+    	int sourcetypeInt = [sourceTypeString intValue];
+    	if( 0 == sourceTypeInt ) {
+    		sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+    	} else if( 1 == =sourceTypeInt ) {
+    		sourceType = UIImagePickerControllerSourceTypeCamera;
+    	} else {
+    		NSLog(@"Capture video sourceType (%@) invalid. Use default.", sourceTypeString);
+    	};
+    }
+    
+	if ([UIImagePickerController isSourceTypeAvailable:sourceType]) {
         // there is a camera, it is available, make sure it can do movies
         if (pickerController != nil) {
             [pickerController release]; // create a new one for each instance to initialize all variables
@@ -224,7 +237,7 @@
 
         NSArray* types = nil;
         if ([UIImagePickerController respondsToSelector: @selector(availableMediaTypesForSourceType:)]){
-             types = [UIImagePickerController availableMediaTypesForSourceType:UIImagePickerControllerSourceTypeCamera];
+             types = [UIImagePickerController availableMediaTypesForSourceType:sourceType];
             //NSLog(@"MediaTypes: %@", [types description]); 
         
             if ([types containsObject:(NSString*)kUTTypeMovie]){
@@ -242,7 +255,7 @@
     } else { 
         
         pickerController.delegate = self;
-        pickerController.sourceType = UIImagePickerControllerSourceTypeCamera;
+        pickerController.sourceType = sourceType;
         pickerController.allowsEditing = NO;
         // iOS 3.0
         pickerController.mediaTypes = [NSArray arrayWithObjects: mediaType, nil];
