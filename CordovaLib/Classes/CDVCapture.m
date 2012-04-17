@@ -33,6 +33,7 @@
 @synthesize quality;
 @synthesize callbackId;
 @synthesize mimeType;
+@synthesize popoverController;
 
 
 - (uint64_t) accessibilityTraits
@@ -62,6 +63,12 @@
 
 @implementation CDVCapture
 @synthesize inUse;
+
+-(BOOL)popoverSupported
+{
+    return (NSClassFromString(@"UIPopoverController") != nil) 
+        && (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad);
+}
 
 -(id)initWithWebView:(UIWebView *)theWebView
 {
@@ -112,11 +119,24 @@
     NSString* callbackId = [arguments objectAtIndex:0];
     NSString* mode = [options objectForKey:@"mode"];
     
+    NSString* sourceTypeString = [options valueForKey:@"sourceType"];
+    UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera; // default
+    if( sourceTypeString != nil ) {
+    	int sourceTypeInt = [sourceTypeString intValue];
+    	if( 0 == sourceTypeInt ) {
+    		sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+    	} else if( 1 == sourceTypeInt ) {
+    		sourceType = UIImagePickerControllerSourceTypeCamera;
+    	} else {
+    		NSLog(@"Capture.captureImage: sourceType (%@) invalid. Using default.", sourceTypeString);
+    	};
+    }
+    
 	//options could contain limit and mode neither of which are supported at this time
     // taking more than one picture (limit) is only supported if provide own controls via cameraOverlayView property
     // can support mode in OS 
     
-	if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
+	if (![UIImagePickerController isSourceTypeAvailable:sourceType]) {
 		NSLog(@"Capture.imageCapture: camera not available.");
         CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageToErrorObject:CAPTURE_NOT_SUPPORTED];
         [self writeJavascript:[result toErrorCallbackString:callbackId]];
@@ -128,7 +148,7 @@
         }
 	
         pickerController.delegate = self;
-        pickerController.sourceType = UIImagePickerControllerSourceTypeCamera;
+        pickerController.sourceType = sourceType;
         pickerController.allowsEditing = NO;
         if ([pickerController respondsToSelector:@selector(mediaTypes)]) {
             // iOS 3.0
@@ -143,12 +163,25 @@
         // CDVImagePicker specific property
         pickerController.callbackId = callbackId;
         pickerController.mimeType = mode;
-	
-        if ([self.viewController respondsToSelector:@selector(presentViewController:::)]) {
-            [self.viewController presentViewController:pickerController animated:YES completion:nil];        
+        
+        if( [self popoverSupported] && sourceType != UIImagePickerControllerSourceTypeCamera ) {
+            if( pickerController.popoverController == nil ) {
+                pickerController.popoverController = [[NSClassFromString(@"UIPopoverController") alloc]
+                                                      initWithContentViewController:pickerController];
+            }
+            pickerController.popoverController.delegate = self;
+            [ pickerController.popoverController 
+                  presentPopoverFromRect:CGRectMake(0,32,320,480)
+                  inView:[self.webView superview]
+                  permittedArrowDirections:UIPopoverArrowDirectionAny
+                  animated:YES ];
         } else {
-            [self.viewController presentModalViewController:pickerController animated:YES ];
-        }              
+            if ([self.viewController respondsToSelector:@selector(presentViewController:::)]) {
+                [self.viewController presentViewController:pickerController animated:YES completion:nil];        
+            } else {
+                [self.viewController presentModalViewController:pickerController animated:YES ];
+            }       
+        }
     }
 
 }
@@ -218,13 +251,13 @@
     NSString* sourceTypeString = [options valueForKey: @"sourceType"];
     UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera; //default
     if( sourceTypeString != nil ) {
-    	int sourcetypeInt = [sourceTypeString intValue];
+    	int sourceTypeInt = [sourceTypeString intValue];
     	if( 0 == sourceTypeInt ) {
     		sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-    	} else if( 1 == =sourceTypeInt ) {
+    	} else if( 1 == sourceTypeInt ) {
     		sourceType = UIImagePickerControllerSourceTypeCamera;
     	} else {
-    		NSLog(@"Capture video sourceType (%@) invalid. Use default.", sourceTypeString);
+    		NSLog(@"Capture.captureVideo: sourceType (%@) invalid. Use default.", sourceTypeString);
     	};
     }
     
@@ -275,12 +308,25 @@
         }
         // CDVImagePicker specific property
         pickerController.callbackId = callbackId;
-        
-        if ([self.viewController respondsToSelector:@selector(presentViewController:::)]) {
-            [self.viewController presentViewController:pickerController animated:YES completion:nil];        
+
+        if( [self popoverSupported] && sourceType != UIImagePickerControllerSourceTypeCamera ) {
+            if( pickerController.popoverController == nil ) {
+                pickerController.popoverController = [[NSClassFromString(@"UIPopoverController") alloc]
+                                                      initWithContentViewController:pickerController];
+            }
+            pickerController.popoverController.delegate = self;
+            [ pickerController.popoverController 
+             presentPopoverFromRect:CGRectMake(0,32,320,480)
+             inView:[self.webView superview]
+             permittedArrowDirections:UIPopoverArrowDirectionAny
+             animated:YES ];
         } else {
-            [self.viewController presentModalViewController:pickerController animated:YES ];
-        }              
+            if ([self.viewController respondsToSelector:@selector(presentViewController:::)]) {
+                [self.viewController presentViewController:pickerController animated:YES completion:nil];        
+            } else {
+                [self.viewController presentModalViewController:pickerController animated:YES ];
+            }
+        }
     }
     
 }
@@ -497,11 +543,15 @@
     CDVImagePicker* cameraPicker = (CDVImagePicker*)picker;
 	NSString* callbackId = cameraPicker.callbackId;
 	
-    if ([picker respondsToSelector:@selector(presentingViewController)]) { 
-        [[picker presentingViewController] dismissModalViewControllerAnimated:YES];
+    if( nil != cameraPicker.popoverController ) {
+        [cameraPicker.popoverController dismissPopoverAnimated:YES];
     } else {
-        [[picker parentViewController] dismissModalViewControllerAnimated:YES];
-    }        
+        if ([picker respondsToSelector:@selector(presentingViewController)]) { 
+            [[picker presentingViewController] dismissModalViewControllerAnimated:YES];
+        } else {
+            [[picker parentViewController] dismissModalViewControllerAnimated:YES];
+        }        
+    }
 	
     NSString* jsString = nil;
     CDVPluginResult* result = nil;
@@ -544,11 +594,15 @@
     CDVImagePicker* cameraPicker = (CDVImagePicker*)picker;
 	NSString* callbackId = cameraPicker.callbackId;
 	
-    if ([picker respondsToSelector:@selector(presentingViewController)]) { 
-        [[picker presentingViewController] dismissModalViewControllerAnimated:YES];
+    if( nil != cameraPicker.popoverController ) {
+        [cameraPicker.popoverController dismissPopoverAnimated:YES];
     } else {
-        [[picker parentViewController] dismissModalViewControllerAnimated:YES];
-    }        
+        if ([picker respondsToSelector:@selector(presentingViewController)]) { 
+            [[picker presentingViewController] dismissModalViewControllerAnimated:YES];
+        } else {
+            [[picker parentViewController] dismissModalViewControllerAnimated:YES];
+        }
+    }
 	
     NSString* jsString = nil;
     CDVPluginResult* result = nil;

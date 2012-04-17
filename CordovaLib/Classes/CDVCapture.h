@@ -38,17 +38,19 @@ typedef NSUInteger CDVCaptureError;
 	NSString* callbackid;
 	NSInteger quality;
     NSString* mimeType;
+    UIPopoverController* popoverController;
 }
 @property (assign) NSInteger quality;
 @property (copy)   NSString* callbackId;
 @property (copy)   NSString* mimeType;
+@property (assign) UIPopoverController* popoverController;
 
 
 - (void) dealloc;
 
 @end
 
-@interface CDVCapture : CDVPlugin<UIImagePickerControllerDelegate, UINavigationControllerDelegate> 
+@interface CDVCapture : CDVPlugin<UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIPopoverControllerDelegate> 
 {
     CDVImagePicker* pickerController;
     BOOL inUse;
