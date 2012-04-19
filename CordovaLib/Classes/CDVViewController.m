@@ -303,9 +303,14 @@
 			i = 90;
 			break;
 	}
-	// TODO: update JS references here
-	NSString* jsCallback = [NSString stringWithFormat:@"window.__defineGetter__('orientation',function(){ return %d; }); Cordova.fireEvent('orientationchange', window);",i];
-	[self.webView stringByEvaluatingJavaScriptFromString:jsCallback];    
+    
+    if (!IsAtLeastiOSVersion(@"5.0")) {
+        NSString* jsCallback = [NSString stringWithFormat:
+                                @"window.__defineGetter__('orientation',function(){ return %d; }); \
+                                  cordova.fireWindowEvent('orientationchange');"
+                                , i];
+        [self.webView stringByEvaluatingJavaScriptFromString:jsCallback];    
+    }
 }
 
 - (void) createGapView
@@ -419,7 +424,7 @@
 	NSURL* url = [request URL];
     
     /*
-     * Execute any commands queued with Cordova.exec() on the JS side.
+     * Execute any commands queued with cordova.exec() on the JS side.
      * The part of the URL after gap:// is irrelevant.
      */
 	if ([[url scheme] isEqualToString:@"gap"]) {
@@ -734,10 +739,6 @@ BOOL gSplashScreenShown = NO;
 
 - (BOOL) execute:(CDVInvokedUrlCommand*)command
 {
-    DLog(@"execute class:%@ method:%@", command.className, command.methodName);
-    DLog(@"arguments: %@", [command.arguments JSONString]);
-    DLog(@"options: %@", [command.options JSONString]);
-    
     if (command.className == nil || command.methodName == nil) {
         return NO;
     }
@@ -928,7 +929,6 @@ static NSString* cdvVersion;
 - (void) onAppWillResignActive:(NSNotification*)notification
 {
     //NSLog(@"%@",@"applicationWillResignActive");
-    // TODO: uhh, wut? pause/resume not enough?
     [self.webView stringByEvaluatingJavaScriptFromString:@"cordova.fireDocumentEvent('resign');"];
 }
 
@@ -940,14 +940,13 @@ static NSString* cdvVersion;
 - (void) onAppWillEnterForeground:(NSNotification*)notification
 {
     //NSLog(@"%@",@"applicationWillEnterForeground");
-    [self.webView stringByEvaluatingJavaScriptFromString:@"cordova.fireDocumentEvent('resume');"];
+    [self.webView stringByEvaluatingJavaScriptFromString:@"cordova.require('cordova/channel').onResume.fire();"];
 }
 
 // This method is called to let your application know that it moved from the inactive to active state. 
 - (void) onAppDidBecomeActive:(NSNotification*)notification
 {
     //NSLog(@"%@",@"applicationDidBecomeActive");
-    // TODO: uhh, wut? pause/resume not enough?
     [self.webView stringByEvaluatingJavaScriptFromString:@"cordova.fireDocumentEvent('active');"];
 }
 
@@ -958,7 +957,7 @@ static NSString* cdvVersion;
 - (void) onAppDidEnterBackground:(NSNotification*)notification
 {
     //NSLog(@"%@",@"applicationDidEnterBackground");
-    [self.webView stringByEvaluatingJavaScriptFromString:@"cordova.fireDocumentEvent('pause');"];
+    [self.webView stringByEvaluatingJavaScriptFromString:@"cordova.require('cordova/channel').onPause.fire();"];
 }
 
 // ///////////////////////
