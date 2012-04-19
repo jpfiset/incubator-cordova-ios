@@ -245,7 +245,11 @@
     NSString* callbackId = [arguments objectAtIndex:0];
 	//options could contain limit, duration and mode, only duration is supported (but is not due to apple bug)
     // taking more than one video (limit) is only supported if provide own controls via cameraOverlayView property
-    //NSNumber* duration = [options objectForKey:@"duration"];
+    NSNumber* duration = [options objectForKey:@"duration"];
+    // the default value of duration is 0 so use nil (no duration) if default value
+    if (duration) {
+        duration = [duration doubleValue] == 0 ? nil : duration;
+    }
     NSString* mediaType = nil;
     
     NSString* sourceTypeString = [options valueForKey: @"sourceType"];
@@ -306,9 +310,20 @@
             //pickerController.cameraDevice = UIImagePickerControllerCameraDeviceRear;
             //pickerController.cameraFlashMode = UIImagePickerControllerCameraFlashModeAuto;
         }
+        
+        // iOS 5
+        int majorVersion = [[[UIDevice currentDevice] systemVersion] intValue];
+        //NSLog(@"Major version %d",majorVersion);
+        if( majorVersion >= 5 ) {
+            if (duration) {
+                pickerController.videoMaximumDuration = [duration doubleValue];
+            }
+            //NSLog(@"pickerController.videoMaximumDuration: %f",pickerController.videoMaximumDuration);
+        }
+        
         // CDVImagePicker specific property
         pickerController.callbackId = callbackId;
-
+        
         if( [self popoverSupported] && sourceType != UIImagePickerControllerSourceTypeCamera ) {
             if( pickerController.popoverController == nil ) {
                 pickerController.popoverController = [[NSClassFromString(@"UIPopoverController") alloc]
